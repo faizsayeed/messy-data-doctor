@@ -1,0 +1,57 @@
+:root {
+  --black: #050505;
+  --black-soft: #0c0c0c;
+  --ash: #161616;
+
+  --white: #ffffff;
+  --white-soft: #e5e7eb;
+  --white-muted: #9ca3af;
+
+  /* line glow only */
+  --line-glow: rgba(255,255,255,0.35);
+
+  /* minimal motion */
+  --ease: cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+body {
+  margin: 0;
+  font-family: "Inter", system-ui, sans-serif;
+  background: radial-gradient(
+    circle at top,
+    #0e0e0e,
+    var(--black)
+  );
+  color: var(--white-soft);
+  min-height: 100vh;
+  letter-spacing: 0.15px;
+}
+
+/* =========================
+   DASHBOARD GRID
+   ========================= */
+
+.dashboard-grid {
+  display: grid;
+  grid-template-columns: repeat(12, 1fr);
+  gap: 20px;
+  margin-bottom: 30px;
+}
+
+/* Card sizing helpers */
+.col-12 { grid-column: span 12; }
+.col-8  { grid-column: span 8; }
+.col-6  { grid-column: span 6; }
+.col-4  { grid-column: span 4; }
+
+/* Chart canvas control */
+.dashboard-grid canvas {
+  max-height: 280px;
+}
+
+/* Responsive */
+@media (max-width: 900px) {
+  .col-8, .col-6, .col-4 {
+    grid-column: span 12;
+  }
+}

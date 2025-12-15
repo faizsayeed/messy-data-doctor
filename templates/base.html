@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  
+  <meta charset="UTF-8" />
+  <title>{{ title if title else "Messy Data Doctor" }}</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+  <!-- CSS -->
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/theme.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/components.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/animations.css') }}">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+  
+
+
+  <!-- JS -->
+  <script defer src="{{ url_for('static', filename='js/nlp.js') }}"></script>
+
+</head>
+<body>  
+
+  <!-- NAVBAR -->
+  <nav class="navbar">
+    <div class="nav-steps">
+    <a href="#diagnosis" class="step">Diagnose</a>
+    <a href="#suggestions" class="step">Clean</a>
+    <a href="#analytics" class="step">Analyze</a>
+    <a href="#export" class="step">Export</a>
+    </div>
+
+  </nav>
+
+  <!-- MAIN CONTENT -->
+  <main class="page fade-in">
+    {% block content %}{% endblock %}
+  </main>
+
+</body>
+</html>

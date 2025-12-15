@@ -1,0 +1,15 @@
+{% extends "base.html" %}
+{% block content %}
+
+<div class="card">
+  <h3>📤 Upload Dataset</h3>
+  <p>Upload a CSV file to analyze data quality and insights.</p>
+
+  <form method="POST" enctype="multipart/form-data">
+    <input type="file" name="file" required />
+    <br><br>
+    <button class="btn">Analyze Dataset</button>
+  </form>
+</div>
+
+{% endblock %}

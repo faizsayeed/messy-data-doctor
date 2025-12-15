@@ -1,0 +1,387 @@
+{% extends "base.html" %}
+{% block content %}
+
+<!-- ============================= -->
+<!-- DATA QUALITY SCORE -->
+<!-- ============================= -->
+<div class="card">
+  <h3>📊 Data Quality Score</h3>
+
+  <div style="display:flex; gap:40px; flex-wrap:wrap;">
+    <div>
+      <h4>Before Cleaning</h4>
+      <p style="font-size:26px;color:#f87171;">{{ before_score.total }}/100</p>
+    </div>
+
+    <div>
+      <h4>After Cleaning</h4>
+      <p style="font-size:26px;color:#4ade80;">{{ after_score.total }}/100</p>
+    </div>
+  </div>
+
+  <hr>
+
+  <ul>
+    <li>Completeness: {{ after_score.completeness }}/25</li>
+    <li>Uniqueness: {{ after_score.uniqueness }}/25</li>
+    <li>Consistency: {{ after_score.consistency }}/25</li>
+    <li>Validity: {{ after_score.validity }}/25</li>
+  </ul>
+</div>
+
+<!-- ============================= -->
+<!-- ANALYTICS DASHBOARD -->
+<!-- ============================= -->
+<h3 style="margin-bottom:12px;">📊 Analytics Dashboard</h3>
+
+<!-- 🔘 ANALYTICS MODE TOGGLE -->
+<div class="card">
+  <label><b>📌 Analytics Mode</b></label>
+  <div style="display:flex; gap:10px; margin-top:8px;">
+    <button id="datasetBtn" class="btn active">Whole Dataset</button>
+    <button id="columnBtn" class="btn btn-outline">Column Explorer</button>
+  </div>
+</div>
+
+<!-- 🎛 COLUMN SELECT (HIDDEN INITIALLY) -->
+<div class="card" id="columnCard" style="display:none;">
+  <label><b>🎛 Select Column</b></label>
+  <select id="columnSelect" style="width:100%;padding:10px;">
+    {% for col in analytics.columns %}
+      <option value="{{ col }}">{{ col }}</option>
+    {% endfor %}
+  </select>
+</div>
+
+<!-- ============================= -->
+<!-- GRAPHS -->
+<!-- ============================= -->
+<div class="dashboard-grid">
+
+  <div class="card col-4">
+    <h4>Min / Mean / Max</h4>
+    <div style="height:220px"><canvas id="barChart"></canvas></div>
+  </div>
+
+  <div class="card col-4">
+    <h4>Mean Trend</h4>
+    <div style="height:220px"><canvas id="trendChart"></canvas></div>
+  </div>
+
+  <div class="card col-4">
+    <h4>Variance</h4>
+    <div style="height:220px"><canvas id="varianceChart"></canvas></div>
+  </div>
+
+  <div class="card col-6">
+    <h4>Missing Values</h4>
+    <div style="height:240px"><canvas id="missingChart"></canvas></div>
+  </div>
+
+  <div class="card col-6">
+    <h4>Outliers</h4>
+    <div style="height:240px"><canvas id="outlierChart"></canvas></div>
+  </div>
+
+  <div class="card col-12">
+    <h4>Correlation Heatmap</h4>
+    <div style="height:300px"><canvas id="heatmap"></canvas></div>
+  </div>
+
+</div>
+
+<!-- ============================= -->
+<!-- AI CLEANING SUGGESTIONS -->
+<!-- ============================= -->
+<div class="card">
+  <h3>🤖 AI Cleaning Suggestions</h3>
+
+  {% if suggestions|length > 0 %}
+
+    <!-- 🔥 APPLY ALL BUTTON -->
+    <form action="/apply_all/{{ filename }}" method="POST" style="margin-bottom:16px;">
+      <button class="btn" style="width:100%;">
+        ⚡ Apply All AI Suggestions
+      </button>
+    </form>
+
+    <!-- INDIVIDUAL SUGGESTIONS -->
+    {% for s in suggestions %}
+      <div style="border-bottom:1px solid rgba(255,255,255,0.08); padding:12px 0;">
+        <p>{{ s.message }}</p>
+        <b style="color:var(--line-glow);">{{ s.recommendation }}</b>
+
+        <form action="/apply_suggestion/{{ filename }}" method="POST" style="margin-top:8px;">
+          <input type="hidden" name="issue" value="{{ s.issue }}">
+          <input type="hidden" name="column" value="{{ s.column }}">
+          <button class="btn">Apply</button>
+        </form>
+      </div>
+    {% endfor %}
+
+  {% else %}
+
+    <p style="color:var(--white-muted); margin-top:12px;">
+      ✅ No major data quality issues detected.
+    </p>
+
+  {% endif %}
+</div>
+
+<!-- ============================= -->
+<!-- ASK YOUR DATA -->
+<!-- ============================= -->
+<div class="card ask-card" id="ask-data">
+  <h3>💬 Ask Your Data</h3>
+
+  <div class="ask-row">
+    <input
+      id="nlQuery"
+      class="ask-input"
+      type="text"
+      placeholder="e.g. highest value in Sales | average Price | correlation"
+    />
+    <button class="btn ask-btn" onclick="askData('{{ filename }}')">
+      Ask
+    </button>
+  </div>
+
+  <div id="nlResult" class="ask-result"></div>
+</div>
+
+<!-- ============================= -->
+<!-- EXPORT -->
+<!-- ============================= -->
+<div class="card">
+  <h3>📤 Export</h3>
+  {% if data_source == "cleaned" %}
+    <a href="/download/{{ filename }}" class="btn">⬇️ Cleaned CSV</a>
+  {% endif %}
+  <a href="/export/pdf/{{ filename }}" class="btn">📄 PDF</a>
+  <a href="/export/python/{{ filename }}" class="btn">🐍 Python Script</a>
+  <button class="btn" onclick="exportAnalytics()">
+  📊 Export Analytics (Graphs + Scores)
+</button>
+
+</div>
+
+<!-- ============================= -->
+<!-- CHART SCRIPT -->
+<!-- ============================= -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+const stats = {{ analytics.stats | tojson }};
+const variance = {{ analytics.variance | tojson }};
+const missing = {{ analytics.missing | tojson }};
+const outliers = {{ analytics.outliers | tojson }};
+const columns = {{ analytics.columns | tojson }};
+const corr = {{ analytics.correlation | tojson }};
+const numericCols = Object.keys(stats);
+
+
+
+/* ---------- Charts ---------- */
+const barChart = new Chart(barChartCtx = document.getElementById("barChart"), {type:"bar",data:{labels:[],datasets:[]}});
+const trendChart = new Chart(document.getElementById("trendChart"), {type:"line",data:{labels:[],datasets:[]}});
+const varianceChart = new Chart(document.getElementById("varianceChart"), {type:"bar",data:{labels:[],datasets:[]}});
+const missingChart = new Chart(document.getElementById("missingChart"), {type:"bar",data:{labels:[],datasets:[]}});
+const outlierChart = new Chart(document.getElementById("outlierChart"), {type:"bar",data:{labels:[],datasets:[]}});
+
+/* ---------- Dataset View ---------- */
+function loadDatasetView(){
+  barChart.data.labels = numericCols;
+  barChart.data.datasets = [
+    {label:"Min", data:numericCols.map(c=>stats[c].min)},
+    {label:"Mean", data:numericCols.map(c=>stats[c].mean)},
+    {label:"Max", data:numericCols.map(c=>stats[c].max)}
+  ];
+  barChart.update();
+
+  trendChart.data.labels = numericCols;
+  trendChart.data.datasets = [{label:"Mean Trend",data:numericCols.map(c=>stats[c].mean)}];
+  trendChart.update();
+
+  varianceChart.data.labels = numericCols;
+  varianceChart.data.datasets = [{label:"Variance",data:numericCols.map(c=>variance[c])}];
+  varianceChart.update();
+
+  missingChart.data.labels = columns;
+  missingChart.data.datasets = [{label:"Missing",data:columns.map(c=>missing[c]||0)}];
+  missingChart.update();
+
+  outlierChart.data.labels = numericCols;
+  outlierChart.data.datasets = [{label:"Outliers",data:numericCols.map(c=>outliers[c])}];
+  outlierChart.update();
+}
+
+/* ---------- Column View ---------- */
+function loadColumnView(col){
+  if(!numericCols.includes(col)) return;
+
+  barChart.data.labels=["Min","Mean","Max"];
+  barChart.data.datasets=[{label:col,data:[stats[col].min,stats[col].mean,stats[col].max]}];
+  barChart.update();
+
+  trendChart.data.labels=["Mean"];
+  trendChart.data.datasets=[{label:col,data:[stats[col].mean]}];
+  trendChart.update();
+
+  varianceChart.data.labels=[col];
+  varianceChart.data.datasets=[{label:"Variance",data:[variance[col]]}];
+  varianceChart.update();
+
+  missingChart.data.labels=[col];
+  missingChart.data.datasets=[{label:"Missing",data:[missing[col]||0]}];
+  missingChart.update();
+
+  outlierChart.data.labels=[col];
+  outlierChart.data.datasets=[{label:"Outliers",data:[outliers[col]]}];
+  outlierChart.update();
+}
+
+/* ---------- UI LOGIC ---------- */
+const datasetBtn = document.getElementById("datasetBtn");
+const columnBtn = document.getElementById("columnBtn");
+const columnCard = document.getElementById("columnCard");
+const columnSelect = document.getElementById("columnSelect");
+
+datasetBtn.onclick = () => {
+  datasetBtn.classList.add("active");
+  columnBtn.classList.remove("active");
+  columnCard.style.display="none";
+  loadDatasetView();
+};
+
+columnBtn.onclick = () => {
+  columnBtn.classList.add("active");
+  datasetBtn.classList.remove("active");
+  columnCard.style.display="block";
+  loadColumnView(columnSelect.value);
+};
+
+columnSelect.onchange = () => loadColumnView(columnSelect.value);
+
+/* ---------- INIT ---------- */
+loadDatasetView();
+
+</script>
+<script>
+/* =============================
+   CORRELATION HEATMAP
+============================= */
+
+if (Object.keys(corr).length > 1) {
+
+  const labels = Object.keys(corr);
+  const heatData = [];
+
+  labels.forEach((x, i) => {
+    labels.forEach((y, j) => {
+      heatData.push({
+        x: i,
+        y: j,
+        v: corr[x][y]
+      });
+    });
+  });
+
+  new Chart(document.getElementById("heatmap"), {
+    type: "scatter",
+    data: {
+      datasets: [{
+        label: "Correlation",
+        data: heatData,
+        pointRadius: 10,
+        backgroundColor: ctx => {
+          const value = ctx.raw.v;
+          if (value > 0.7) return "#22c55e";   // strong +
+          if (value > 0.3) return "#86efac";   // weak +
+          if (value < -0.7) return "#ef4444";  // strong -
+          if (value < -0.3) return "#fca5a5";  // weak -
+          return "#94a3b8";                    // near zero
+        }
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      scales: {
+        x: {
+          ticks: {
+            callback: v => labels[v]
+          }
+        },
+        y: {
+          ticks: {
+            callback: v => labels[v]
+          }
+        }
+      },
+      plugins: {
+        tooltip: {
+          callbacks: {
+            label: ctx =>
+              `${labels[ctx.raw.x]} vs ${labels[ctx.raw.y]} : ${ctx.raw.v}`
+          }
+        }
+      }
+    }
+  });
+}
+</script>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+
+<script>
+async function exportAnalytics() {
+
+  const charts = [
+    "barChart",
+    "trendChart",
+    "varianceChart",
+    "missingChart",
+    "outlierChart",
+    "heatmap"
+  ];
+
+  const images = {};
+
+  for (let id of charts) {
+    const canvas = document.getElementById(id);
+    if (!canvas) continue;
+    images[id] = canvas.toDataURL("image/png");
+  }
+
+  const payload = {
+    filename: "{{ filename }}",
+    scores: {
+      before: {{ before_score.total }},
+      after: {{ after_score.total }}
+    },
+    analytics: {
+      stats: stats,
+      variance: variance,
+      missing: missing,
+      outliers: outliers
+    },
+    images: images
+  };
+
+  const res = await fetch("/export/analytics", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload)
+  });
+
+  const blob = await res.blob();
+  const url = window.URL.createObjectURL(blob);
+
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = "{{ filename }}_analytics.zip";
+  a.click();
+}
+</script>
+
+
+{% endblock %}

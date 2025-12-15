@@ -1,0 +1,35 @@
+{% extends "base.html" %}
+{% block content %}
+
+<div class="card">
+  <h3>🕒 Version History</h3>
+  <p><b>Dataset:</b> {{ filename }}</p>
+</div>
+
+<div class="card">
+  <table width="100%">
+    <tr>
+      <th>Version</th>
+      <th>Action</th>
+      <th>Timestamp</th>
+      <th>Action</th>
+    </tr>
+
+    {% for v in versions %}
+    <tr>
+      <td>v{{ v.version }}</td>
+      <td>{{ v.action }}</td>
+      <td>{{ v.timestamp }}</td>
+      <td>
+        <a href="/undo/{{ filename }}/{{ v.version }}" class="btn">
+          🔁 Restore
+        </a>
+      </td>
+    </tr>
+    {% endfor %}
+  </table>
+</div>
+
+<a href="/report/{{ filename }}" class="btn">⬅ Back to Report</a>
+
+{% endblock %}
