@@ -422,4 +422,5 @@ def export_analytics_safe(filename):
 # MAIN
 # ==============================
 if __name__ == "__main__":
-    app.run(debug=True)
+    app.run()
+
