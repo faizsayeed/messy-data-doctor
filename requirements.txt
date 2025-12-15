@@ -1,0 +1,6 @@
+flask
+pandas
+numpy
+reportlab
+python-dateutil
+gunicorn
